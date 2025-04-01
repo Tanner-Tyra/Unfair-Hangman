@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hangman Game</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            background-color: #eaeaea;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #hangman-container {
+            position: relative;
+            width: 200px;
+            height: 250px;
+            margin: 20px auto;
+        }
+
+        /* Gallows */
+        .gallows {
+            position: absolute;
+            width: 100px;
+            height: 200px;
+            left: 50px;
+            top: 10px;
+        }
+
+        .gallows .vertical {
+            width: 10px;
+            height: 180px;
+            background-color: #555;
+            position: absolute;
+            left: 10px;
+            bottom: 0;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .gallows .horizontal {
+            width: 80px;
+            height: 10px;
+            background-color: #555;
+            position: absolute;
+            left: 10px;
+            top: 0;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .gallows .rope {
+            width: 4px;
+            height: 30px;
+            background-color: #8B4513;
+            position: absolute;
+            left: 70px;
+            top: 10px;
+            border-radius: 2px;
+        }
+
+        /* Hangman Parts */
+        .part {
+            position: absolute;
+            background-color: #333;
+            display: none;
+        }
+
+        #head {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            top: 40px;
+            left: 100px;
+            border: 3px solid #333;
+            background-color: #999999; /* Gold color for head */
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        #body {
+            width: 8px;
+            height: 80px;
+            top: 90px;
+            left: 120px;
+            background-color: #333;
+        }
+
+        #left-arm, #right-arm {
+            width: 40px;
+            height: 8px;
+            top: 100px;
+            background-color: #333;
+        }
+
+        #left-arm {
+            left: 85px;
+            transform: rotate(-30deg);
+        }
+
+        #right-arm {
+            left: 125px;
+            transform: rotate(30deg);
+        }
+
+        #left-leg, #right-leg {
+            width: 40px;
+            height: 8px;
+            top: 170px;
+            background-color: #333;
+        }
+
+        #left-leg {
+            left: 100px;
+            transform: rotate(120deg);
+        }
+
+        #right-leg {
+            left: 120px;
+            transform: rotate(60deg);
+        }
+
+        /* Word Display */
+        #word-display {
+            font-size: 28px;
+            margin: 20px;
+            letter-spacing: 5px;
+            color: #555;
+        }
+
+        #message {
+            font-size: 18px;
+            font-weight: bold;
+            color: red;
+        }
+
+        /* Inputs */
+        input, button {
+            font-size: 16px;
+            padding: 10px;
+            margin: 10px;
+        }
+
+        button {
+            cursor: pointer;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        /* Game Status Message */
+        #game-status {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Interesting Hangman</h1>
+    <div id="hangman-container">
+        <div class="gallows">
+            <div class="vertical"></div>
+            <div class="horizontal"></div>
+            <div class="rope"></div>
+        </div>
+        <div id="head" class="part"></div>
+        <div id="body" class="part"></div>
+        <div id="left-arm" class="part"></div>
+        <div id="right-arm" class="part"></div>
+        <div id="left-leg" class="part"></div>
+        <div id="right-leg" class="part"></div>
+    </div>
+
+    <div id="word-display">_ _ _ _ _</div>
+    <p>Incorrect Guesses: <span id="incorrect-guesses"></span></p>
+    <p>Attempts Left: <span id="attempts-left">6</span></p>
+    <div id="sarcastic-message"></div> <!-- Insult will be inserted here -->
+
+    <!-- Display Win or Loss Status -->
+    <div id="game-status"></div>
+
+    <input type="text" id="guess-input" maxlength="1" placeholder="Enter a letter">
+    <button onclick="makeGuess()">Guess</button>
+
+    <p id="message"></p>
+
+    <script>
+        function makeGuess() {
+            let guess = document.getElementById("guess-input").value.toLowerCase();
+            document.getElementById("guess-input").value = "";
+
+            fetch("/guess", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ letter: guess })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById("message").innerText = data.error;
+                    return;
+                }
+
+                document.getElementById("word-display").innerText = data.display_word || document.getElementById("word-display").innerText;
+                document.getElementById("incorrect-guesses").innerText = data.incorrect_guesses.join(", ");
+                document.getElementById("attempts-left").innerText = data.attempts_left;
+
+                let parts = document.getElementsByClassName("part");
+                for (let i = 0; i < 6 - data.attempts_left; i++) {
+                    parts[i].style.display = "block";
+                }
+
+                if (data.insult) {
+                    document.getElementById("sarcastic-message").innerText = data.insult;  // Display insult if it's a wrong guess
+                }
+
+                if (data.status === "won") {
+                    document.getElementById("game-status").innerText = "You won!";
+                } else if (data.status === "lost") {
+                    document.getElementById("game-status").innerText = "You lost! The word was: " + data.word;
+                }
+
+                if (data.message) {
+                    document.getElementById("message").innerText = data.message;
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
